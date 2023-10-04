@@ -6,5 +6,6 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc")
 set(CMAKE_EXE_LINKER_FLAGS -static)
 
 add_executable(RayTracer main.cpp
-        vec3.h
-        color.h)
+        headers/vec3.h
+        headers/color.h
+        headers/ray.h)
