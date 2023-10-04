@@ -8,4 +8,9 @@ set(CMAKE_EXE_LINKER_FLAGS -static)
 add_executable(RayTracer main.cpp
         headers/vec3.h
         headers/color.h
-        headers/ray.h)
+        headers/ray.h
+        headers/hittable.h
+        headers/sphere.h
+        headers/hittable_list.h
+        headers/rtweekend.h
+        headers/interval.h)
