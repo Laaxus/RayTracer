@@ -8,12 +8,24 @@
 using namespace std;
 using color = vec3;
 
-void write_color(ofstream &Image, color pixel_color){
-    int r = static_cast<int>(255.99*pixel_color.x());
-    int g = static_cast<int>(255.99*pixel_color.y());
-    int b = static_cast<int>(255.99*pixel_color.z());
+void write_color(ofstream &Image, color pixel_color, int samples_per_pixel){
+    static const interval intensity(0.0, 0.999);
 
-    Image << r << ' ' << g << ' ' << b << '\n';
+    double r = pixel_color.x();
+    double g = pixel_color.y();
+    double b = pixel_color.z();
+
+    // Divide the color by the number of samples.
+    double scale = 1.0 / samples_per_pixel;
+    r *= scale;
+    g *= scale;
+    b *= scale;
+
+    int cr = static_cast<int>(256*intensity.clamp(r));
+    int cg = static_cast<int>(256*intensity.clamp(g));
+    int cb = static_cast<int>(256*intensity.clamp(b));
+
+    Image << cr << ' ' << cg << ' ' << cb << '\n';
 }
 
 #endif //RAYTRACER_COLOR_H
