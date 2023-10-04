@@ -13,4 +13,5 @@ add_executable(RayTracer main.cpp
         headers/sphere.h
         headers/hittable_list.h
         headers/rtweekend.h
-        headers/interval.h)
+        headers/interval.h
+        headers/camera.h)
