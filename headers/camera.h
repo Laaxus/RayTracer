@@ -10,6 +10,9 @@
 #include "color.h"
 #include "hittable.h"
 #include "material.h"
+#include "threadpool.h"
+#include <chrono>
+
 
 class camera {
 public:
@@ -31,23 +34,8 @@ public:
 
     void render(const hittable& world) {
         initialize();
-
-        ofstream Image("image.ppm");
-        Image << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-
-        for (int j = 0; j < image_height; ++j) {
-            clog << "\rScanlines remaining: " << (image_height - j) << ' ' << flush;
-            for (int i = 0; i < image_width; ++i) {
-                color pixel_color(0,0,0);
-                for (int sample = 0; sample < samples_per_pixel; ++sample) {
-                    ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, world);
-                }
-                write_color(Image, pixel_color, samples_per_pixel);
-            }
-        }
-
-        Image.close();
+        render_image(world);
+        print_image();
     }
 
 private:
@@ -61,10 +49,22 @@ private:
     vec3   defocus_disk_u;  // Defocus disk horizontal radius
     vec3   defocus_disk_v;  // Defocus disk vertical radius
 
+    vector<vector<color>> image;
+
     void initialize() {
         image_height = static_cast<int>(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
         center = lookfrom;
+
+        for (int j = 0; j < image_height; ++j) {
+            vector<color> vec;
+            for (int i = 0; i < image_width; ++i) {
+                color pixel_color(0,0,0);
+                vec.push_back(pixel_color);
+            }
+            image.push_back(vec);
+        }
+
 
         // Determine viewport dimensions.
         double theta = degrees_to_radians(vfov);
@@ -95,6 +95,65 @@ private:
         double defocus_radius = focus_dist * tan(degrees_to_radians(defocus_angle / 2));
         defocus_disk_u = u * defocus_radius;
         defocus_disk_v = v * defocus_radius;
+    }
+
+    void render_image(const hittable& world) {
+        ThreadPool threadPool{1};
+        vector<std::future<void>> res;
+
+        auto pixel_task = [&world,camera = this](int j)  {
+            for (int i = 0; i < camera->image_width; ++i) {
+                camera->render_pixel(world,j,i);
+            }
+        } ;
+
+        for (int j = 0; j < image_height; ++j) {
+            auto future = threadPool.enqueue(pixel_task,j);
+            res.emplace_back(std::move(future));
+        }
+
+        int total = 1;
+        int max = image_height;
+        auto start = chrono::steady_clock::now();
+        for (auto& x : res)
+        {
+            if(total % (max/100) == 0) {
+                auto now = chrono::steady_clock::now();
+                cout << total * 100 / max << "%, " << chrono::duration_cast<chrono::minutes>((now - start)*(max-total)/total).count()<<" estimated minutes remaining\n";
+            }
+            x.get();
+            total++;
+        }
+    }
+
+    void render_image2(const hittable& world) {
+        for (int j = 0; j < image_height; ++j) {
+            clog << "\rScanlines remaining: " << (image_height - j) << ' ' << flush;
+            for (int i = 0; i < image_width; ++i) {
+                render_pixel(world,j,i);
+            }
+        }
+    }
+
+
+    void render_pixel(const hittable& world, int j, int i){
+        for (int sample = 0; sample < samples_per_pixel; ++sample) {
+            ray r = get_ray(i, j);
+            image[j][i] += ray_color(r, max_depth, world);
+        }
+    }
+
+    void print_image() {
+        ofstream Image("image.ppm");
+        Image << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+
+        for (int j = 0; j < image_height; ++j) {
+            for (int i = 0; i < image_width; ++i) {
+                write_color(Image, image[j][i], samples_per_pixel);
+            }
+        }
+
+        Image.close();
     }
 
     color ray_color(const ray& r, int depth, const hittable& world) const {
